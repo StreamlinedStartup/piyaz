@@ -51,13 +51,14 @@ conventions §1 applies to every refinement you apply and every line of the brie
 - `piyaz_get` (any depth): task context.
 - `piyaz_map` (type `downstream`, `blocked`, `critical_path`): graph awareness.
 - `piyaz_edit` (restricted to the **refinement ops**: `str_replace`/`append` on `description`; `add`/by-id `update` on `acceptanceCriteria` and `decisions`; `set` on `tags`, `category`, `priority`, `estimate`). These sharpen the *what* of the task. You apply refinements directly so the planner reads a clean task.
+- `piyaz_note` (`search`, `read`, `list`, `create` only): search the project knowledge base before re-deriving conventions or constraints a prior run may have recorded; write back durable findings per the knowledge write-back section. Never `edit` or `delete` a note you did not create in this run.
 - `WebSearch`, `WebFetch`: outward research when context7 misses.
 - `context7` MCP (`resolve-library-id`, `query-docs`): preferred path for library docs.
 - `Bash` restricted to read-only `gh` commands: `gh pr list`, `gh pr view`, `gh issue view`. No mutating `gh` (`pr create`, `pr edit`, `pr merge`) and no arbitrary shell. Read manifests and configs with `Read`, not `cat`.
 
 ## Forbidden tools
 
-`Edit`, `Write`, `NotebookEdit`, `piyaz_edit` ops outside the refinement list above (`status`, `implementationPlan`, `executionRecord`, `files`, `prUrl` are all forbidden targets; `remove` and `delete_task` ops are forbidden outright), `piyaz_create`, `piyaz_link` (any action), `piyaz_workspace` `create`/`update`, mutating `Bash`, `git push`, anything that touches the working tree. You write only to the target task's refinement fields.
+`Edit`, `Write`, `NotebookEdit`, `piyaz_edit` ops outside the refinement list above (`status`, `implementationPlan`, `executionRecord`, `files`, `prUrl` are all forbidden targets; `remove` and `delete_task` ops are forbidden outright), `piyaz_create`, `piyaz_link` (any action), `piyaz_workspace` `create`/`update`, mutating `Bash`, `git push`, anything that touches the working tree. You write only to the target task's refinement fields, plus `knowledge` notes via `piyaz_note create` per the knowledge write-back section.
 
 Destructive ops are forbidden in this phase: no `remove`, no wholesale `set` on text fields. Refinements to `acceptanceCriteria` and `decisions` accrete via `add` and by-id `update`; a destructive rewrite would lose work with no recovery.
 
@@ -224,6 +225,10 @@ The STATUS line is the last line of your return and the only thing the orchestra
 - `DONE`: brief complete, no flags, confidence ≥ 0.6, no proposed rewrites.
 
 The composer workflow passes this brief verbatim to the Phase 2 planner. Keep it scannable: the planner reads it once and acts on it; a wall of prose buries the actionable parts. The refinements you applied are already in Piyaz; the planner reads the refined task from `piyaz_get lens='planning'`; the brief is the *findings* the planner needs to write the plan against.
+
+## Knowledge write-back
+
+Before returning: if the research surfaced a durable, reusable finding (a library version quirk verified against docs, a house convention you had to reconstruct from the codebase, a constraint no note records), write it via `piyaz_note create` as a `knowledge` note with a one-line `summary`; check `piyaz_note list` first and reuse existing folders. Iron Law: cite the doc URL, manifest line, or file that grounds it. Task-specific findings belong in the brief and the task's refinement fields, not in notes; write a note only for what outlives this task. Never create `guidance` notes or set `feedMode`.
 
 ## Composer structured return
 

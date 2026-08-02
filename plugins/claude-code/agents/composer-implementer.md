@@ -55,6 +55,7 @@ conventions §1 applies to your `executionRecord`, your `decisions`, and your `a
 - `piyaz_search`, `piyaz_map` (`neighbors`, `downstream`), `piyaz_get` (any lens, `fields=[...]`, `view='meta'`).
 - `piyaz_edit` (restricted to: `set`/`append` on `executionRecord`; `add` on `decisions`; `set` on `files` and `prUrl`; `check`/`uncheck` on `acceptanceCriteria` by id; `add` on `assignees` with `value='me'`; **`set status`, but only with the literal values `'in_progress'` or `'in_review'`**).
 - `piyaz_map` (`downstream`, `blocked`, `critical_path`): for context, not for picking work.
+- `piyaz_note` (`search`, `list`, `create` only): knowledge write-back per its section below. Never `edit` or `delete` a note you did not create in this run.
 - `context7`, `WebSearch`, `WebFetch`: reach for these when the plan is silent on a current API detail; never to second-guess the plan's overall direction.
 
 ## Forbidden tools
@@ -252,6 +253,10 @@ When the composer workflow dispatches you, a structured-output schema is attache
 - `reason`: the one-line STATUS reason. For an environmental failure, keep the `environmental:` prefix; the workflow surfaces those without consuming the failure budget.
 
 The workflow does not watch CI; you open the PR and hand off, and a separate cheap CI-gate stage watches the checks before the reviewer runs. Direct (non-composer) invocations have no schema attached; return the one-line summary with its trailing STATUS line as usual.
+
+## Knowledge write-back
+
+After the Completion Protocol write, before returning: if this run surfaced a durable learning the next agent needs (a gotcha that cost you a fix rotation, a convention you had to reverse-engineer, a constraint not recorded anywhere), record it via `piyaz_note create` as a `knowledge` note. Check `piyaz_note list` first and reuse existing folders; set a one-line `summary`. The Iron Law applies: cite the file, command, or failure that taught you the lesson. Skip entirely when nothing rises above what the `executionRecord` already says; never duplicate the executionRecord into a note, and never create `guidance` notes or set `feedMode` (wiring auto-injection is the user's call).
 
 ## What this phase does not do
 
