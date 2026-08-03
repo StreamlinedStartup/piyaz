@@ -1,12 +1,15 @@
 # Reviewer rules (composer Phase 4 extract)
 
-Slim extract of the canonical piyaz references for the review agent.
-Mirrors: `skills/piyaz/references/conventions.md` §1,
+Condensed extract of the canonical piyaz references for the review agent.
+Sources: `skills/piyaz/references/conventions.md` §1,
 `skills/piyaz/references/lifecycle.md` §2.2, §2.3, §2.4, §3, and
 `skills/piyaz/references/artifacts.md` §1 (`executionRecord`,
 `decisions`), §6. Headings carry their canonical file and section number
-so citations like `lifecycle §2.2` resolve unambiguously. When editing a
-mirrored section, edit BOTH files.
+so citations like `lifecycle §2.2` resolve unambiguously. The canonical
+files are authoritative and hold the full examples and word lists; read
+them when a condensed section is not enough. When a canonical section
+changes, re-derive the condensed form here (CI pins the canonical hashes
+via `sources.json`).
 
 The reviewer verifies the Completion Protocol was honored; it does not
 execute it. §2.2 and §2.3 below are what the implementer was required to
@@ -21,7 +24,7 @@ downstream-impact list.
 Never write what you cannot cite or do not know.
 ```
 
-Applies wherever an agent generates `executionRecord`, `decisions`, `description`, or `files`. For the reviewer it applies to the verdict: every finding cites a real file path and line, every AC evaluation cites the diff or the executionRecord. When uncertain, write less. A short, true verdict is more valuable than a rich, fabricated one.
+For the reviewer it applies to the verdict: every finding cites a real file path and line, every AC evaluation cites the diff or the executionRecord. When uncertain, write less. A short, true verdict is more valuable than a rich, fabricated one.
 
 ---
 
@@ -29,7 +32,7 @@ Applies wherever an agent generates `executionRecord`, `decisions`, `description
 
 `executionRecord`, `decisions`, `files`, `acceptanceCriteria`, plus `prUrl` when a PR was opened (backend upserts a `task_links` row with `kind='pull_request'` so the review subagent and detail UI can resolve the PR). The MCP server returns `_hints` if any are missing.
 
-For pure spec-review / docs / decision-only / Piyaz-only refinement tasks that touched no repo files, `files=[]` is the correct positive answer to "what changed in the repo?", not the absence of an answer.
+For tasks that touched no repo files, `files=[]` is the correct positive answer to "what changed in the repo?", not the absence of an answer.
 
 Non-code deliverables must be reviewable: committed in the PR when repo-resident, otherwise linked on the task or recorded in a `Deliverables` section of the `executionRecord` with the path or URL and the exact regeneration command. A claimed deliverable the reviewer cannot reach is a blocking finding.
 
@@ -46,13 +49,7 @@ A missing PR on a code-changing task, a missing bracket ref, or a fabricated tem
 
 ## lifecycle §2.4 — Skip the PR for these task types
 
-A missing PR is legitimate (not a finding) for:
-
-- Research / investigation tasks (no code change).
-- Decision-only tasks.
-- Pure-Piyaz refinement tasks (no repo changes).
-- Tasks the user explicitly said "no PR" on.
-- Data and BA work without a code repo (dashboard tweaks, workbooks, metric sign-offs, ad-hoc SQL attached to a ticket). The deliverable lives outside git; the artifact link or path belongs in `executionRecord` and `files`. When the data work IS in a git repo (a dbt project, a versioned SQL or notebook repo), the standard PR rules apply.
+A missing PR is legitimate (not a finding) for: research / investigation tasks, decision-only tasks, pure-Piyaz refinement tasks, tasks the user explicitly said "no PR" on, and data / BA work without a code repo (the artifact link or path belongs in `executionRecord` and `files` instead). When the data work IS in a git repo (a dbt project, a versioned SQL or notebook repo), the standard PR rules apply.
 
 ---
 
@@ -62,20 +59,7 @@ A missing PR is legitimate (not a finding) for:
 A change that does not propagate did not happen.
 ```
 
-The graph is Piyaz's value. Skip once and it lies: ready tasks that aren't ready, blockers pointing at shipped work, every future session picking the wrong next step.
-
-After any status change or significant refinement:
-
-1. `piyaz_map view='neighbors'` on the changed task. Current relationships.
-2. `piyaz_map view='downstream'`. Who depends on this task.
-3. For each downstream task, evaluate:
-   - Do edge notes need updating to reflect new decisions?
-   - Are there NEW relationships revealed by this change?
-   - Are there STALE relationships that no longer hold?
-   - Do downstream descriptions need updating based on the decisions made?
-4. Create, update, or remove edges as needed.
-
-The reviewer does not execute propagation. Your downstream-impact list names the edges that will need attention; the orchestrator (or the human) executes the rewires.
+The graph is Piyaz's value; skip propagation once and it lies. After any status change or significant refinement, the orchestrator (or the human) walks `piyaz_map view='neighbors'` and `view='downstream'` on the changed task and creates, updates, or removes edges whose notes or assumptions the change invalidated. The reviewer does not execute propagation; your downstream-impact list names the edges that will need attention.
 
 ---
 
@@ -89,59 +73,23 @@ The implementer writes this field at the `in_review` transition; you verify it a
 - **Distinct from `description`:** description = scope + role; executionRecord = HOW it was built (or WHY it was abandoned).
 - **Include:** function names, file paths, endpoints, data formats.
 - **Exclude:** debugging stories, false starts, filler.
-- **For `cancelled`:** rationale (why abandoned), approaches tried, decisions learned. Same shape as a done record, just for non-shipping outcomes.
+- **For `cancelled`:** rationale (why abandoned), approaches tried, decisions learned.
 - **Deliverables section (optional):** when the task ships non-code artifacts, a `## Deliverables` list (path or URL plus the exact regeneration command per artifact) extends the record beyond the sentence core.
 - **Draft tasks must NOT carry an `executionRecord`.** That field implies the task shipped.
 
 ### `decisions`
 
-One-liner per decision. Format: **CHOICE + WHY**.
+One-liner per decision: **CHOICE + WHY**.
 
 ```
-GOOD (web): "Chose Redis for refresh tokens. Need fast revocation lookups."
-GOOD (sim): "Use std::vector for the Queue backing storage. Cheap front() lookup, fast tail insert; spec is silent on container choice."
-
-BAD: "Used Drizzle"
-BAD: "We picked Redis because it's good"
-BAD: "Decided to do it that way"
+GOOD: "Chose Redis for refresh tokens. Need fast revocation lookups."
+BAD: "Used Drizzle" / "Decided to do it that way"
 ```
 
-Never invent. An implementer `decisions` entry that is not grounded in the diff, the plan, or the conversation is a finding.
+An implementer `decisions` entry that is not grounded in the diff, the plan, or the conversation is a finding.
 
 ---
 
 ## artifacts §6 — Markdown formatting and tone
 
-Applies to everything you write into the verdict.
-
-### Structure
-
-- Bullet lists (`-`) for 3 or more items. Never run-on prose.
-- Backticks for code references: file paths, function names, endpoints, variables, package names.
-- Paragraph breaks between distinct topics.
-
-### Tone: never sound like AI
-
-**Do not use:**
-
-- Em dashes (the `—` character). Use periods, commas, parentheses, or colons.
-- Hedging openers: "I think", "perhaps", "seems to", "might be", "arguably".
-- Enthusiasm: "Great question", "Awesome", "Exciting", "Love this".
-- Throat-clearing: "Let me dive into", "I hope this helps", "Here's the thing", "To be honest".
-- Marketing words: "comprehensive", "robust", "powerful", "leverage", "utilize", "ensure", "facilitate", "seamless", "game-changer", "best-in-class".
-- Adverb-heavy openers: "Importantly", "Crucially", "Notably", "Essentially", "Basically".
-- Empty filler: "It's worth noting that", "It should be mentioned", "As a matter of fact".
-- Performative summaries at the end: "I hope this helps!", "Let me know if you need anything else!"
-
-**Do:**
-
-- Subject, verb, object.
-- Active voice.
-- Concrete over abstract. "Adds 50ms p99" beats "improves performance".
-- Specific over vague. "Stripe webhook handler" beats "payment integration".
-- Cut adverbs.
-- One idea per sentence.
-
-### Length
-
-Concision over padding. No filler, no repetition. The rule is "no fluff", not "no length".
+Applies to everything you write into the verdict. Structure: bullet lists for 3 or more items, backticks for code references, paragraph breaks between topics. Tone: the verdict must read like an engineer wrote it, not a chatbot. No em dashes, no hedging or throat-clearing openers, no marketing words ("comprehensive", "robust", "leverage", "seamless"), no filler, no performative sign-offs. Subject-verb-object, active voice, concrete over abstract ("Adds 50ms p99" beats "improves performance"). Concision over padding; the rule is "no fluff", not "no length". Full word lists and examples: canonical `artifacts.md` §6.
