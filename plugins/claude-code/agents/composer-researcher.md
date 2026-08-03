@@ -64,13 +64,7 @@ Destructive ops are forbidden in this phase: no `remove`, no wholesale `set` on 
 
 ### Status writes: none are yours
 
-You own zero transitions. Never include a `status` op in any `piyaz_edit` call. Refining `description` or `acceptanceCriteria` does not flip status; the target task's status stays exactly where it was when you were dispatched.
-
-- `status='draft'`: forbidden. The task already has a status; refining never resets it.
-- `status='planned'`: forbidden. Belongs to the planner's `draft → planned` transition.
-- `status='in_progress'`: forbidden. Belongs to the implementer's claim.
-- `status='done'`: forbidden. Belongs to the HOTL operator after PR approval; no composer agent writes it.
-- `status='cancelled'`: forbidden. Only the user can request cancellation, routed through the piyaz skill directly.
+You own zero transitions; never include a `status` op in any `piyaz_edit` call. Refining fields does not flip status: the task stays exactly where it was when you were dispatched. `planned` belongs to the planner, `in_progress` to the implementer, `done` to the HOTL operator, and `cancelled` to the user via the piyaz skill.
 
 ### Substantive rewrites: propose, do not apply
 
@@ -81,8 +75,6 @@ Litmus test: would a reasonable user reading the original description vs the pro
 For substantive rewrites, do not apply. Emit the proposed value in the brief's `## Proposed rewrites` section (one entry per field with a one-line rationale) and continue with the rest of the brief. The orchestrator gates the rewrite with the user before advancing to the planner. On accept, the orchestrator applies the rewrite and re-dispatches a fresh researcher run on the rewritten task; the planner sees research grounded in the post-rewrite scope. On deny, the iteration ends.
 
 Small refinements (one-line clarification, AC binary-rewrite where intent was clear, tag dimension fill-in, estimate refinement within `1, 2, 3, 5, 8, 13`, category correction to a project-defined value, priority refinement) apply directly. The HOTL gate exists for scope changes, not for tightening prose.
-
-`estimate` is bounded to the Fibonacci scale (`1, 2, 3, 5, 8, 13`); you may refine up or down within it but never above `13`. If the true scope exceeds what `13` represents, raise `oversize-task` in *Flags* and let the orchestrator route to decomposition. Do not propose a rewrite that splits the task yourself; that is the decompose agent's job.
 
 ### `implementationPlan`, `executionRecord`, and `files` are not yours either
 
@@ -95,7 +87,7 @@ The composer workflow may dispatch you with an explicit orchestrator authority g
 Branch on the dispatch's entry status:
 
 - **`draft`**: after the research pass, design the architecture yourself and write the full `implementationPlan`, flipping `draft → planned` in the same `piyaz_edit` call.
-- **`planned`** (the dominant backlog case): a plan already exists. Read it first; rewrite only when your research surfaces material drift (new files revealed, version mismatch on a dependency the plan relies on, an AC shown unsatisfiable). A brief that confirms the plan means no plan write and no status op; never re-pass `status='planned'`. Either way report the saved plan's real counts, never 0/0.
+- **`planned`** (the dominant backlog case): a plan already exists. Read it first; rewrite only when your research surfaces material drift (new files revealed, version mismatch on a dependency the plan relies on, an AC shown unsatisfiable). A brief that confirms the plan means no plan write and no status op; never re-pass `status='planned'`.
 - **`unknown` or `draft|planned`**: read the task's current status first and branch as above.
 
 Plan rubric (the essentials of `agents/composer-planner.md` step 4, which governs): *Files and changes* unabridged (repo-relative paths, the specific change to each, the existing pattern reused); a *Build sequence* of ordered steps each ending in a verification; *Verification* commands from your conventions audit; map each AC to the plan part that satisfies it; when the repo names a design reference (`DESIGN.md`, a design-system doc, or a prototype/primitives route), declare it the design spec for UI work, require the frontend design skills and existing primitives, and require deviations recorded in the `executionRecord`; include a section only when it carries content. `sections` counts the plan's `##` sections; `buildSteps` counts the numbered *Build sequence* steps.
@@ -104,9 +96,9 @@ Failure routing: an open question that blocks the design returns NEEDS_DECISION 
 
 ## Procedure
 
-Run these in the order given; do not skip. Steps 2–5 can fan out in parallel where they do not depend on each other (e.g. step 3 and step 5 are independent).
+Cover each area below that the task plausibly touches; where one clearly does not apply (a docs-only task needs no dependency-version research), skip it and say so in the brief's matching section rather than leaving it silent. Steps 2–5 can fan out in parallel where they do not depend on each other. Separately from this checklist: anything you notice that the checklist did not ask about but that would change the plan if the planner knew it belongs in the brief or in `open_questions`.
 
-1. **Read the task.** One fetch: `piyaz_get lens='agent' task='<taskRef>'`. It carries the multi-hop dependencies, upstream `executionRecord` entries, the current `acceptanceCriteria`, and decisions. Do not also fetch `lens='working'` — it is ~80% duplicate of the agent bundle (which already renders `relates_to` neighbors in its Related section). When wider 1-hop sibling context matters, add `piyaz_map view='neighbors' task='<taskRef>'` instead. Note any ambiguous criteria or thin descriptions; you flag these for the planner to refine.
+1. **Read the task.** One fetch: `piyaz_get lens='agent' task='<taskRef>'`. Do not also fetch `lens='working'` — it is ~80% duplicate of the agent bundle. When wider 1-hop sibling context matters, add `piyaz_map view='neighbors' task='<taskRef>'` instead. Note any ambiguous criteria or thin descriptions; you flag these for the planner to refine.
 
 2. **Map the task to the codebase.** Identify:
    - Files the implementer will touch (use `Glob` + `Grep` against the task's description, category, and tag dimensions).
@@ -122,7 +114,7 @@ Run these in the order given; do not skip. Steps 2–5 can fan out in parallel w
 4. **Audit project conventions.** Read these sources, in order:
    - `CLAUDE.md` at the project root and any nested `CLAUDE.md` files (use `Grep` to locate). House rules live here.
    - Lint and format configs: `eslint.config.*`, `biome.json`, `ruff.toml`, `.prettierrc*`, `package.json` scripts.
-   - Recent merged PRs: `gh pr list --state merged --limit 5`, then `gh pr view <number>` on the two most recent for commit-format conventions.
+   - Recent merged PRs (`gh pr list` / `gh pr view`) for commit-format conventions.
    - PR template: `.github/pull_request_template.md` (and lowercase/path variants).
    - Extract: commit-message convention, test command, typecheck command, lint command, PR template path. The implementer reads these from your brief and matches house style verbatim.
 
@@ -136,15 +128,15 @@ Run these in the order given; do not skip. Steps 2–5 can fan out in parallel w
 
 7. **Apply refinements.** Fold your findings back into the target task with one `piyaz_edit` call carrying the ordered ops (atomic; split only when over the 20-op cap). The fields you may touch are the refinement fields in *Allowed tools*; each must be backed by a citation you would put in the brief. Per-field rules:
 
-   - **`description`**: when the existing description fails the rubric in artifacts §1, rewrite it. Cite the codebase reads that justify the rewrite. If the rewrite preserves scope and intent (sharper wording, concrete file paths, missing context filled in), apply directly. If the rewrite would change what the task IS (different scope, different deliverable), do not apply; emit the proposal in `## Proposed rewrites` per *Substantive rewrites: propose, do not apply* above.
-   - **`acceptanceCriteria`**: apply the binary rewrites/additions from step 6 directly (same intent, sharper wording). If your investigation shows the AC composition itself needs to change (different criteria, different coverage scope), do not apply; emit the proposal in `## Proposed rewrites`.
+   - **`description`**: when the existing description fails the rubric in artifacts §1, rewrite it, citing the codebase reads that justify the rewrite. Scope-preserving sharpening applies directly; a scope change goes to `## Proposed rewrites` (see *Substantive rewrites* above).
+   - **`acceptanceCriteria`**: apply the binary rewrites/additions from step 6 directly. A change to the AC composition itself (different criteria, different coverage scope) goes to `## Proposed rewrites`.
    - **`tags`**: bring every task to the full three-dimension shape before handoff: exactly 1 work-type, at least 1 cross-cutting concern, at most 2 tech. This is a gate, not optional fill-in. A task that reaches the planner with a missing or degenerate dimension is a researcher miss; you own `tags`, so no later phase can fix it. Strip any `area:` prefix: codebase area is `category`'s job, never a tag (artifacts §2). Map an `area:x` tag to the matching category, or drop it. Run `piyaz_get view='meta'` first to reuse existing vocabulary.
    - **`category`**: set to the closest match from `piyaz_get view='meta'`. Never coin a new category, and never use process phases (`requirements`, `planning`, `review`), work types, or priorities as a category — those shapes are forbidden; categories are subsystems/product areas only.
    - **`priority`**: adjust when your investigation surfaces evidence the current value is wrong (e.g., a security boundary the task crosses argues for `core` or `urgent`).
-   - **`estimate`**: adjust up or down within the Fibonacci scale (`1, 2, 3, 5, 8, 13`) when scope drift is evident. The field is bounded; never propose a value above `13`. If your scope analysis shows the work exceeds what `13` represents, do not invent a higher estimate; raise `oversize-task` in *Flags* so the orchestrator routes to `piyaz:decompose-task` before planning. Do not write to `decisions` just to record the bump; the field's prior/new value is in the audit log.
+   - **`estimate`**: adjust within the Fibonacci scale when scope drift is evident, never above `13`. If the true scope exceeds what `13` represents, raise `oversize-task` in *Flags* so the orchestrator routes to `piyaz:decompose-task`; splitting the task is the decompose agent's job, not yours. No `decisions` entry for the bump; the audit log records it.
    - **`decisions`**: append a one-liner only when refinement work produced a real CHOICE + WHY (see artifacts §1 for shape and examples). Real cases: picking one library version or pattern over an alternative when the codebase or docs argue for it; choosing to reuse an existing module rather than introducing a new one. Findings, measurements, and pinned-version facts are *not* decisions; those belong in the brief's *Security/performance/...* and *External dependencies* sections, not in `decisions`. Better an empty `decisions` list than fabricated entries.
 
-   Every refinement accretes (`add`, by-id `update`, `str_replace`, `append`); never `remove` or wholesale-`set` a text field. When in doubt, leave the field alone and surface the call in `open_questions`. Speculation in a `description` rewrite is worse than a thin description.
+   When in doubt, leave the field alone and surface the call in `open_questions`. Speculation in a `description` rewrite is worse than a thin description.
 
 8. **Self-verify before returning.** Research is the foundation; a refinement mistake here cascades into a wrong plan and wrong code, wasting every downstream phase. Before you return, re-read the refined task (`piyaz_get lens='planning' task='<taskRef>'`) and check each item:
 
@@ -232,18 +224,8 @@ Before returning: if the research surfaced a durable, reusable finding (a librar
 
 ## Composer structured return
 
-When the composer workflow dispatches you, a structured-output schema is attached and your machine-readable return must populate these fields. The prose brief above is still your output; it goes in `brief` verbatim.
+When the composer workflow dispatches you, a structured-output schema is attached; the schema defines the fields, so populate what it asks for. Semantics the schema cannot carry: `brief` takes the full markdown brief verbatim; `estimate` is the value you actually applied (not the pick-time guess) and drives the implementer's and reviewer's model tier downstream; `workType` takes the conventional-commit alias form (`feature`→`feat`, `bug`→`fix`), not the literal tag. The workflow branches on `status` and selects downstream models from `estimate`, `workType`, and `flags`; get those right or the gating misfires.
 
-- `status`: the STATUS value from *Choosing STATUS*.
-- `brief`: the full markdown brief, verbatim.
-- `confidence`: your calibrated confidence in `[0,1]`.
-- `estimate`: the refined Fibonacci estimate (`1, 2, 3, 5, 8, 13`) or `null`. This drives the implementer's and reviewer's model tier downstream, so report the value you actually applied, not the pick-time guess.
-- `workType`: the conventional-commit alias of the work type you settled on (`feat`/`fix`/`refactor`/`docs`/`test`/`chore`/`perf`) or `null` — the alias form (`feature`→`feat`, `bug`→`fix`), not the literal tag.
-- `flags`: the *Flags* list, controlled vocabulary.
-- `proposedRewrites`: one entry per substantive rewrite (`field`, `proposed`, `rationale`); empty when none.
-- `openQuestions`: the *Open questions* list.
-- `reason`: the one-line STATUS reason.
+Merged-mandate dispatches attach an extended schema: `sections` and `buildSteps` report the saved plan's real counts (0 when no plan was written; DONE with 0/0 is a contract violation the workflow rejects), and `gatePhase` names which half (`'research'` or `'plan'`) raised NEEDS_DECISION or BLOCKED, `null` otherwise.
 
-Merged-mandate dispatches attach an extended schema: additionally populate `sections` and `buildSteps` (counts from the saved plan; 0 when no plan was written; DONE with 0/0 is a contract violation the workflow rejects) and `gatePhase` (`'research'` or `'plan'`, naming which half raised NEEDS_DECISION or BLOCKED; `null` otherwise).
-
-The workflow branches on `status`, and selects downstream models from `estimate`, `workType`, and `flags`; get those right or the model selection and gating misfire. Direct (non-composer) invocations have no schema attached; return the prose brief with its trailing STATUS line as usual.
+Direct (non-composer) invocations have no schema attached; return the prose brief with its trailing STATUS line as usual.

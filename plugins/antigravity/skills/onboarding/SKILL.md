@@ -462,6 +462,10 @@ If the user approves: delete `.piyaz/onboarding-<projectIdentifier>.md`, then re
 
 If the user declines, leave the file in place.
 
+### Step 3: Convert repo conventions into guidance notes (offer, do not auto-create)
+
+The repo's convention files (`CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, lint configs, PR templates) hold standing rules that future task-bundle readers need. Offer to distill them into `guidance` notes via `piyaz_note create`: one note per subsystem or concern (e.g. "API conventions", "Testing conventions"), each a short constraints block citing its source file, with a proposed `feedMode` wiring (`categories` or `tags`) shown to the user before creation. Iron Law: every rule in a note must come from a real file in the repo; cite the path. If the user declines, skip; do not fold conventions into task descriptions instead.
+
 ### When to skip the offer entirely
 
 - A compaction signal fires inside Phase 6 itself. Surface the leftovers explicitly so the next session knows they exist; do not silently truncate.
