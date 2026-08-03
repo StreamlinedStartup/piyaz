@@ -115,7 +115,7 @@ Plan the dependency graph shape:
 Plan task granularity per artifacts §5:
 
 - 1 to 4 hours per task. Smaller means overhead exceeds work. Larger means hidden subtasks and unclear scope.
-- Starting count from decompose is **not a cap**. The graph grows as work materializes.
+- Starting count from decompose is **not a cap**. The graph grows as work materializes. Never cap project scope below the user's stated vision either; the `priority` field carries build order, so a full-vision graph with honest priorities beats a truncated one.
 
 | Project size | Starting count |
 |---|---|
@@ -125,23 +125,7 @@ Plan task granularity per artifacts §5:
 | Complex (15+ features) | 40 to 80 |
 | Enterprise / multi-team / long-running | 60 to 120 foundation tasks; teams add tasks as work materializes |
 
-Pick categories per artifacts §4 project-type guidance. 4 to 8 categories. Architectural layers / product areas / subsystems only. **No process phases** (`requirements`, `planning`, `review` are forbidden). **No work types** (`bugs`, `features` are tags, not categories).
-
-Examples by project type:
-
-- Web / SaaS: `setup`, `data`, `auth`, `api`, `ui`, `integration`, `testing`, `docs`
-- Mobile: `setup`, `data`, `auth`, `screens`, `services`, `native`, `testing`
-- Game / engine: `core`, `rendering`, `physics`, `audio`, `assets`, `ai`, `netcode`
-- Simulation / scientific: `core`, `models`, `io`, `scenarios`, `verification`, `docs`
-- Embedded / firmware: `hal`, `drivers`, `protocols`, `bootloader`, `testing`, `docs`
-- ML / data platform: `data-pipeline`, `training`, `inference`, `evaluation`, `serving`
-- Data warehouse / analytics engineering (dbt projects, SQL marts): `sources`, `staging`, `marts`, `metrics`, `tests`, `docs`
-- Business analyst / BI (dashboards, reports, ad-hoc analysis): `requirements-intake`, `analysis`, `dashboards`, `metrics`, `data-quality`, `documentation`
-- Agentic system: `core`, `tools`, `memory`, `models`, `evals`, `safety`
-- Multi-agent system: `orchestration`, `agents`, `tools`, `memory`, `models`, `evals`, `safety`
-- Financial / quant: `models`, `pricing`, `risk`, `reporting`, `data`, `ui`
-- Library / SDK / CLI: `core`, `api`, `cli`, `examples`, `testing`, `docs`
-- Hardware / aerospace: borrow from embedded plus domain layers (`flight-control`, `telemetry`, `safety`, `mission-planning`)
+Pick categories from the artifacts §4 project-type guidance that matches this project's shape (web, mobile, game, simulation, embedded, ML platform, dbt, BI, agentic, multi-agent, quant, library, hardware). 4 to 8 categories. Architectural layers / product areas / subsystems only. **Forbidden categories** per artifacts §4: `requirements`, `architecture`, `planning`, `bugs`, `features`, `important`, `tbd`, `misc`. Process phases and work types are never categories; `bugs` and `features` are tags.
 
 Write a structured decomposition plan and present it to the user:
 
@@ -281,7 +265,7 @@ After every 5 to 10 task creates, update `.piyaz/decompose-<projectIdentifier>.m
    - **description**: 2 to 4 sentences. Cover what + why + how it fits. Per artifacts §1, include a solution sketch if you have one.
    - **acceptanceCriteria**: 2 to 4 binary criteria. A reviewer answers YES or NO without ambiguity.
    - **category**: one of the project categories.
-   - **tags**: three dimensions: 1 work type, ≥1 cross-cutting concern, ≤2 tech. Artifacts §2.
+   - **tags**: three dimensions: 1 work type, ≥1 cross-cutting concern, ≤2 tech. Artifacts §2. Reuse the tags already in the session-setup overview before coining a new one.
    - **priority**: one of `urgent`, `core`, `normal`, `backlog`. Pick deliberately; the dimension carries no signal when everything is `core`.
    - **estimate** (optional): Fibonacci story points (`1`, `2`, `3`, `5`, `8`, `13`). Sets scope expectation for the planner. Tasks larger than `13` should be split (§5).
    - **assigneeIds** (optional): array of team-member user UUIDs. Server rejects non-members.
@@ -317,71 +301,37 @@ Catching drift at task 15 is a 30-second fix. The same drift discovered at task 
 
 ### Examples
 
+One anchor per field. Artifacts §1 holds the full set across project types; read it there when the shape you are writing is not web-shaped.
+
 **Title (verb+noun):**
 
 ```
 GOOD: "Implement JWT auth"
-GOOD: "Implement Queue::insert with O(1) tail append"
-GOOD: "Wire MCP tool registration in agent loop init"
-GOOD: "Train baseline ResNet-50 on internal dataset"
-
 BAD: "Auth"
-BAD: "Queue stuff"
-BAD: "Performance"
 ```
 
 **Description (2 to 4 sentences):**
 
 ```
-GOOD (web): "Set up PostgreSQL with Drizzle ORM. Define users, habits, and
+GOOD: "Set up PostgreSQL with Drizzle ORM. Define users, habits, and
 completions tables with UUID PKs, timestamps, and FK constraints. Include a
 migration script via drizzle-kit generate and a seed script for dev. This
 is the foundation every API task depends on."
 
-GOOD (sim): "Implement Queue::insert per spec §4.2.4.1. Tail append only;
-front pointer remains stable so Airport::moveToRunway can swap in place.
-std::vector backing storage. O(1) amortized. Lives in include/Queue.h."
-
-GOOD (agentic): "Build the agent loop. Pulls from messages, dispatches a
-tool call when the model emits one, validates the tool against the registry,
-streams the result back into messages, repeats until the model emits a
-final response. Lives in src/loop.ts. Used by every entry point."
-
-GOOD (data / BA): "Define the gross_margin metric in the dbt metrics layer.
-Formula: (revenue - cogs) / revenue, dimensioned by product_line, channel,
-and order_month. Source: fct_orders joined to dim_products. Replaces four
-near-duplicate SQL versions across Looker, Tableau, and the weekly deck.
-Stakeholders: CFO weekly review, RevOps dashboard."
-
 BAD: "Set up the database."
-BAD: "Implement queue."
-BAD: "Build the dashboard."
 ```
 
 **Acceptance criteria (binary):**
 
 ```
-GOOD (web):
+GOOD:
 - "Running bun run db:push creates all tables without errors"
 - "User table has id, email, name, passwordHash, createdAt columns"
 - "FK from habits.userId to users.id with ON DELETE CASCADE"
-- "Seed script creates 3 test users and 6 habits"
-
-GOOD (firmware):
-- "spi_send returns within 50µs at 80MHz clock measured on logic analyzer"
-- "DMA TX completion fires interrupt; no busy-loop in the driver"
-
-GOOD (data / dbt):
-- "dbt run --select gross_margin completes in under 60s on prod warehouse"
-- "Numbers reconcile with finance_actuals.gross_revenue to within $500 for every month in scope"
-- "Looker tile `Gross Margin by Channel` renders the new metric without errors"
-- "dbt test passes: not_null on metric value, accepted_range on margin between -1 and 1"
 
 BAD:
 - "Database works"
-- "All tables created"
 - "Tests pass"
-- "Dashboard looks right"
 ```
 
 ---
@@ -395,23 +345,13 @@ For each dependency from your plan, `piyaz_link action='create'`:
 
 ### Edge note examples
 
+Artifacts §3 holds the full set across project types.
+
 ```
-GOOD (web): "User API endpoints need the JWT middleware and token
-validation helpers built in the auth task. See lib/auth/middleware.ts."
-
-GOOD (sim): "Crash flow runs each tick at the head of landingQueue. Needs
-TimeController's per-tick hook structure built in ORAS-26."
-
-GOOD (agentic): "Tool registration depends on the agent loop's MCP client
-init. Tools added after init are missed by in-flight agents."
-
-GOOD (data): "Looker `Engagement Overview` dashboard depends on the
-daily_active_users dbt model. Tile queries select from the marts schema and
-break if the model is renamed or its grain changes."
+GOOD: "User API endpoints need the JWT middleware and token validation
+helpers built in the auth task. See lib/auth/middleware.ts."
 
 BAD: "needs auth"
-BAD: "depends on this"
-BAD: "related"
 ```
 
 After all edges created: `piyaz_map view='neighbors'` per high-degree task. Confirm direction and notes look right.
@@ -512,24 +452,3 @@ Resume mode: `piyaz_activity project='<identifier>' since='<last certain instant
 - Run `piyaz_get view='overview'` exactly once at session start. After that use `piyaz_search` with tag or status filters (slim). Conventions §2 hints discipline applies to every response.
 - Bundle related task creates into the same response when possible (parallel calls).
 - Re-read `references/conventions.md` mid-session if your sense of the rules drifts. LLMs forget over long sessions; refreshing is cheap.
-
-## Rules
-
-- ALWAYS run resume mode at session start (Session setup step 3, resilience). Read existing tasks before writing.
-- ALWAYS persist the approved plan to the project description after the HARD-GATE clears, before Phase 2 (resilience).
-- ALWAYS read the `deduped` list on every `piyaz_create` response; the server dedupes by exact title (resilience).
-- ALWAYS run a quality checkpoint after every 10 task creates (resilience).
-- ALWAYS read tool `_hints` and act on them.
-- ALWAYS reuse existing tags from the overview before coining new ones.
-- NEVER write to the project before HARD-GATE clears.
-- NEVER create a one-sentence description or a single-AC task. They will be rejected.
-- NEVER use empty edge notes. They break downstream context.
-- NEVER cap project scope below the user's vision. Priority tags handle build order.
-- NEVER decompose a project description that is too thin (refusal block above).
-- NEVER skip Phase 4 validation. Finish what you started.
-- ALWAYS offer Phase 5 housekeeping after Phase 4: refresh the project description (drops the `## Decomposition Plan` block) and delete `.piyaz/decompose-<projectIdentifier>.md`. **Auto-cleanup is forbidden; require explicit user confirmation per item.** The user may keep either or both.
-- NEVER use `remove` or wholesale text `set` ops in this session. Decompose creates; it does not rewrite.
-- NEVER use forbidden categories (`requirements`, `architecture`, `planning`, `bugs`, `features`, `important`, `tbd`, `misc`). Artifacts §4.
-- NEVER write text into Piyaz while sounding like a chatbot. No em dashes, no marketing words ("comprehensive", "robust", "leverage"), no AI throat-clearing. Artifacts §6.
-- NEVER recreate a task when its title already exists in the project. Resume mode + idempotent dedupe protects against this (resilience).
-- NEVER power through a session after a compaction signal. STOP and resume mode (resilience).
