@@ -264,6 +264,20 @@ def _render_main_changes(changes: list[str], extra_content: str | None) -> str:
     return ""
 
 
+def _commit_subject(commit_hash: str, repo_root: Path | None) -> str:
+    """Resolve a commit's subject line for the journal table.
+
+    Falls back to the legacy "(see git log)" placeholder when the hash
+    cannot be resolved (shallow clone, typo, or git unavailable). Pipes
+    are escaped so the subject cannot break the markdown table.
+    """
+    code, out, _ = run_git(
+        ["log", "-1", "--format=%s", commit_hash], cwd=repo_root, timeout=5
+    )
+    subject = out.strip().splitlines()[0].strip() if code == 0 and out.strip() else ""
+    return subject.replace("|", "\\|") if subject else "(see git log)"
+
+
 def generate_session_content(
     session_num: int,
     title: str,
@@ -276,6 +290,7 @@ def generate_session_content(
     extra_content: str | None = None,
     tests: list[str] | None = None,
     next_steps: list[str] | None = None,
+    repo_root: Path | None = None,
 ) -> str:
     """Generate session content."""
     if commit and commit != "-":
@@ -283,7 +298,7 @@ def generate_session_content(
 |------|---------|"""
         for c in commit.split(","):
             c = c.strip()
-            commit_table += f"\n| `{c}` | (see git log) |"
+            commit_table += f"\n| `{c}` | {_commit_subject(c, repo_root)} |"
     else:
         commit_table = "(No commits - planning session)"
 
@@ -545,7 +560,7 @@ def add_session(
     session_content = generate_session_content(
         new_session, title, commit, summary, today, package, branch,
         changes=changes, extra_content=extra_content, tests=tests,
-        next_steps=next_steps,
+        next_steps=next_steps, repo_root=repo_root,
     )
     content_lines = len(session_content.splitlines())
 

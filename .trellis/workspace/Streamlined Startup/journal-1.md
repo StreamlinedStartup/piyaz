@@ -21,8 +21,8 @@ Bootstrapped Trellis specs from the actual codebase: new backend spec package (a
 
 | Hash | Message |
 |------|---------|
-| `dec1df4` | (see git log) |
-| `7763177` | (see git log) |
+| `dec1df4` | docs: add fork policy and agent setup |
+| `7763177` | chore(trellis): vendor workflow tooling and specs |
 
 ### Status
 
