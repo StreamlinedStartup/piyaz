@@ -68,6 +68,15 @@ async function buildNextConfig(): Promise<NextConfig> {
       : { output: "standalone", outputFileTracingRoot: PROJECT_ROOT }),
     poweredByHeader: false,
     /**
+     * Dev-only origin allowlist for Next's cross-origin protection on
+     * `/_next/*` and `/__nextjs_font/*`. The default trusts only
+     * `localhost`, so a tab on `http://127.0.0.1:3000` (the canonical dev
+     * origin — BETTER_AUTH_URL and the MCP plugin both use it) gets 403s on
+     * every CORS-mode dev request (fonts, HMR websocket) and the page never
+     * becomes interactive. Ignored in production builds.
+     */
+    allowedDevOrigins: ["127.0.0.1"],
+    /**
      * Surface deploy-time flags to the bundle. `NEXT_PUBLIC_*` is inlined by
      * Next at build, so both the server gate and the static sign-up page read
      * the same baked value. `NEXT_PUBLIC_DEPLOY_TARGET`: self-host builds get
