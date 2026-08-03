@@ -51,6 +51,7 @@ next-env.d.ts
 # Claude Code local files
 .claude/
 CLAUDE.md
+.codegraph/
 DESIGN.md
 DESIGN_2.md
 docs/*
