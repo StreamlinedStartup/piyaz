@@ -109,11 +109,11 @@ Solid answers to four are better than shallow answers to all six.
 
 ### One question at a time
 
-One ask question tool batch per turn (conventions §5). Depth comes from focus, not coverage.
+One ask question tool batch per turn; use prose only when the answer space is genuinely open-ended, never for a bounded set of options (conventions §5). Depth comes from focus, not coverage.
 
 ## Push back
 
-You are not a stenographer. When the user proposes something with a foreseeable problem, name it. The examples below come from different domains; pick the shape that matches the project.
+You are not a stenographer, and silence is a vote in favor. When the user proposes something with a foreseeable problem, name it. The examples below come from different domains; pick the shape that matches the project.
 
 - **Web / SaaS:** "Custom auth is risky. Have you considered Clerk, Supabase Auth, or Better Auth? What specifically rules them out?"
 - **Agentic system:** "Spawning a fresh agent per request: what specifically cannot be reused from the parent's context? A custom prompt cache: what does an off-the-shelf cache miss?"
@@ -197,21 +197,7 @@ You may not call piyaz_workspace action='create' before this gate clears.
 ## After approval: create the project
 
 1. **Multi-team account:** if `action='teams'` returned multiple memberships and the user has not named a team, ask them now. Do not default. The MCP server rejects ambiguous creates with the team list inline.
-2. **Pick categories** from artifacts §4 project-type guidance based on the actual project shape. 4 to 8 categories. Examples by project type:
-   - Web / SaaS: `setup`, `data`, `auth`, `api`, `ui`, `integration`, `testing`, `docs`
-   - Mobile: `setup`, `data`, `auth`, `screens`, `services`, `native`, `testing`
-   - Game / engine: `core`, `rendering`, `physics`, `audio`, `assets`, `ai`, `netcode`
-   - Simulation: `core`, `models`, `io`, `scenarios`, `verification`, `docs`
-   - Embedded / firmware: `hal`, `drivers`, `protocols`, `bootloader`, `testing`, `docs`
-   - ML / data platform: `data-pipeline`, `training`, `inference`, `evaluation`, `serving`
-   - Data warehouse / analytics engineering (dbt): `sources`, `staging`, `marts`, `metrics`, `tests`, `docs`
-   - Business analyst / BI: `requirements-intake`, `analysis`, `dashboards`, `metrics`, `data-quality`, `documentation`
-   - Agentic system: `core`, `tools`, `memory`, `models`, `evals`, `safety`
-   - Financial / quant: `models`, `pricing`, `risk`, `reporting`, `data`, `ui`
-   - Library / SDK / CLI: `core`, `api`, `cli`, `examples`, `testing`, `docs`
-   - Hardware / aerospace: borrow from embedded plus domain layers (`flight-control`, `telemetry`, `safety`)
-
-   Architectural layers / product areas only. **Forbidden categories** per artifacts §4: `requirements`, `architecture`, `planning`, `bugs`, `features`, `important`, `tbd`, `misc`.
+2. **Pick categories** from the artifacts §4 project-type guidance that matches the actual project shape (web, mobile, game, simulation, embedded, ML platform, dbt, BI, agentic, quant, library, hardware). 4 to 8 categories, architectural layers / product areas only. **Forbidden categories** per artifacts §4: `requirements`, `architecture`, `planning`, `bugs`, `features`, `important`, `tbd`, `misc`.
 3. `piyaz_workspace action='create' title='<verb+noun project name>' description='<the synthesis brief, in markdown>' categories=[...] organizationId='<team-uuid>'`. The project lands in `brainstorming` status (the create default). Decompose flips it to `decomposing` while the task graph is built, then `active` when its work completes; do NOT promote the status here.
 4. Tell the user the project is created and offer to hand off to **`piyaz:decompose`** for task breakdown.
 
@@ -227,14 +213,3 @@ If the user says "actually, let me start coding" / "I just want a quick task lis
 - One ask question tool batch per turn (conventions §5).
 - Do not re-summarize the entire conversation every turn. The progress block is enough.
 - Do not write the brief until topics are actually solid. A premature brief means a premature project means orphan tasks.
-
-## Rules
-
-- ALWAYS read `skills/piyaz/references/conventions.md` at session start, and re-read mid-session when uncertain.
-- NEVER create a Piyaz project before the HARD-GATE clears.
-- NEVER mark a `~` topic as `✓` without a concrete answer.
-- NEVER accept "we'll figure it out later" for topics that affect decomposition.
-- NEVER ask outside the ask question tool when the answer space is bounded (conventions §5).
-- NEVER write into Piyaz while sounding like a chatbot. No em dashes, no marketing words, no AI throat-clearing. Artifacts §6.
-- ALWAYS push back on weak choices. Silence is a vote in favor.
-- ALWAYS read tool response `_hints` and act on them.
