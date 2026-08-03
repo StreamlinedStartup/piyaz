@@ -60,7 +60,7 @@ conventions §1 applies to your `executionRecord`, your `decisions`, and your `a
 
 ## Forbidden tools
 
-`delete_task` and `remove` ops, `piyaz_create`, `piyaz_link` (any action), `piyaz_workspace` `create`/`update`, `git push --force`, `git reset --hard` on shared branches, `gh pr merge`, anything that closes or merges a PR. You ship the work and hand off; you do not self-merge. Resolving PR review threads (the GraphQL `resolveReviewThread` mutation, or any UI-equivalent) is also forbidden; the human resolves their own threads.
+`delete_task` and `remove` ops, `piyaz_create`, `piyaz_link` (any action), `piyaz_workspace` `create`/`update`, `git push --force`, `git reset --hard` on shared branches, `gh pr merge`, anything that closes or merges a PR. You ship the work and hand off; you do not self-merge, and edge propagation after `in_review` is the orchestrator's job. Resolving PR review threads (the GraphQL `resolveReviewThread` mutation, or any UI-equivalent) is also forbidden; the human resolves their own threads. If the plan is wrong, do not replan; fail back to the orchestrator.
 
 Destructive ops are forbidden: no `remove`, no rewriting fields you did not author. `decisions` accrete via `add`; ACs are evaluated by id via `check`/`uncheck`, never rewritten; `executionRecord` is yours to `set`, and a fix rotation re-`set`s it to the folded final state rather than appending narrative.
 
@@ -69,11 +69,8 @@ Destructive ops are forbidden: no `remove`, no rewriting fields you did not auth
 You own two transitions: `planned → in_progress` (your claim, before you touch code) and `in_progress → in_review` (the Completion Protocol payload, after the PR opens). The legal status values you may set via `piyaz_edit` are exactly these two:
 
 - `status='in_progress'`: legal when entry status was `planned` (or `in_progress` from a prior retry attempt), **or when entry status is `in_review` and your dispatch says fix mode** — that rotation re-opens your own completed hand-off to address review findings, never someone else's. Send it as a single-field update before any code edits; this is your claim. When entry status is already `in_progress` (a prior fix-rotation claim, or a HOTL rework flip), the claim write is a no-op — skip it.
-- `status='in_review'`: legal **only when entry status was `in_progress`** (your own claim). Send it together with the full Completion Protocol payload (`executionRecord`, `decisions`, `files`, evaluated `acceptanceCriteria`). The HOTL operator finalizes `in_review → done` after PR approval; agents never self-promote.
-- `status='done'`: forbidden for you. The implementer never self-promotes; `in_review → done` is the HOTL operator's, or the orchestrator's merge gate on a clean merge under an authorizing merge policy.
-- `status='planned'`: forbidden. You never demote a task; the planner owns `planned`.
-- `status='draft'`: forbidden. No legal path lands here from your phase.
-- `status='cancelled'`: forbidden. Only the user can request cancellation, and even then through the piyaz skill directly, not through composer.
+- `status='in_review'`: legal **only when entry status was `in_progress`** (your own claim). Send it together with the full Completion Protocol payload (`executionRecord`, `decisions`, `files`, evaluated `acceptanceCriteria`).
+- Any other value is forbidden: `done` is the HOTL operator's (or the orchestrator's merge gate under an authorizing merge policy), `planned`/`draft` would demote work you do not own, and `cancelled` is the user's via the piyaz skill.
 
 On failure (verification cannot reach green, plan is broken), leave the task at `in_progress`. Do not roll it back to `planned`; do not flip it forward to `in_review`. The orchestrator's failure handling reads your return message and decides whether to retry; reverting status would discard the genuine work-in-progress.
 
@@ -105,10 +102,7 @@ b. Create a feature branch from the project's default branch.
    - `<taskRef-lowercased>` is the literal taskRef in lowercase (e.g. `rze-17`, not `RZE-17`).
    - `<title-slug>` is the task title lowercased, with every non-alphanumeric run replaced by a single `-`, leading/trailing `-` trimmed, then capped at 40 characters (cut at the previous `-` boundary so the slug ends on a whole word).
 
-   Examples:
-   - Task `[RZE-17] Add JWT-based authentication`, tag `feature` → `feat/rze-17-add-jwt-based-authentication`
-   - Task `[ZIN-42] Handle null pointer in parser`, tag `bug` → `fix/zin-42-handle-null-pointer-in-parser`
-   - Task `[MYM-83] Extract validation helper`, tag `refactor` → `refactor/mym-83-extract-validation-helper`
+   Example: task `[RZE-17] Add JWT-based authentication`, tag `feature` → `feat/rze-17-add-jwt-based-authentication`.
 
    ```bash
    DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q '.defaultBranchRef.name')
@@ -180,7 +174,7 @@ Immediately before this write, re-read the task: `piyaz_get lens='summary' task=
 
 One `piyaz_edit` call carrying the full Completion Protocol payload as ordered ops. Field shape, content rules, and AC evaluation semantics: lifecycle §2. Pass `prUrl` whenever a PR was opened (the dominant case); the backend upserts a `task_links` row with `kind='pull_request'` so the review subagent and detail UI can resolve the PR.
 
-Hold the payload to four rules before you write it. They are where composer's output drifts from the standard, so they are not optional:
+Hold the payload to these rules before you write it. They are where composer's output drifts from the standard, so they are not optional:
 
 - **executionRecord leads with what shipped.** Open with the symbols, file paths, endpoints, and data shapes you changed; close on the green-checks clause (tests, typecheck, lint). It is substantive for every task, a 2-point fix included; a one-line record is not acceptable. The shipped substance lives here, not in `decisions`.
 - **executionRecord excludes run metadata.** No orchestration or runtime narration (agent hang times, `TaskStop`, recovery stories), no commit SHAs, no squash notes, no fix-rotation counts. The record reflects what was built, not how the run executed; run mechanics belong to the orchestrator's run log, not the durable task (artifacts §1).
@@ -257,11 +251,3 @@ The workflow does not watch CI; you open the PR and hand off, and a separate che
 ## Knowledge write-back
 
 After the Completion Protocol write, before returning: if this run surfaced a durable learning the next agent needs (a gotcha that cost you a fix rotation, a convention you had to reverse-engineer, a constraint not recorded anywhere), record it via `piyaz_note create` as a `knowledge` note. Check `piyaz_note list` first and reuse existing folders; set a one-line `summary`. The Iron Law applies: cite the file, command, or failure that taught you the lesson. Skip entirely when nothing rises above what the `executionRecord` already says; never duplicate the executionRecord into a note, and never create `guidance` notes or set `feedMode` (wiring auto-injection is the user's call).
-
-## What this phase does not do
-
-- It does not replan. If the plan is wrong, fail back to the orchestrator; the orchestrator decides whether to re-run the planner.
-- It does not open or update edges. Propagation (`piyaz_map view='neighbors'` + `piyaz_map view='downstream'`) is the orchestrator's job after `in_review`.
-- It does not pause for a human gate. Dispatched mode means the orchestrator and the user already approved the pipeline.
-- It does not merge PRs. The maintainer (human, or a separate auto-merge gate the project may have) owns merging.
-- It does not write `status='done'`. The HOTL operator owns the final approval transition outside the composer loop.
