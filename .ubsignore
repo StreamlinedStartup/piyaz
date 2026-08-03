@@ -1,0 +1,7 @@
+# Vendored Trellis / Codex tooling, committed as shipped upstream.
+# Style lint in these scripts is not ours to fix (template drift would
+# conflict with `trellis update`).
+.trellis/
+.trellis/**
+.codex/
+.codex/**
