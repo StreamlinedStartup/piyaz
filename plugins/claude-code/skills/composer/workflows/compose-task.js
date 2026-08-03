@@ -138,8 +138,23 @@ const VERDICT_SCHEMA = {
  */
 function resolveArgs(raw) {
   if (raw && typeof raw === "object") return raw;
-  if (typeof raw === "string" && raw.trim()) return JSON.parse(raw);
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      return JSON.parse(raw);
+    } catch (err) {
+      throw new Error(`compose-task: args string is not valid JSON: ${err.message}`);
+    }
+  }
   return {};
+}
+
+/**
+ * Reports whether a value is null or undefined.
+ * @param {unknown} v - Value to test.
+ * @returns {boolean} True for null or undefined.
+ */
+function isNil(v) {
+  return v === null || v === undefined;
 }
 
 const a = resolveArgs(args);
@@ -176,9 +191,9 @@ function forceOpus(est, flags) {
   const riskFlag = (flags || []).some((f) => RISK_FLAGS.includes(f));
   return (
     hasRiskTag(a.tags) ||
-    est == null ||
+    isNil(est) ||
     est >= 8 ||
-    a.priorFailure != null ||
+    !isNil(a.priorFailure) ||
     a.pickPriority === "urgent" ||
     riskFlag
   );
@@ -194,7 +209,7 @@ let fableFailed = false;
  */
 function fableGuardrails(est, flags) {
   const riskFlag = (flags || []).some((f) => RISK_FLAGS.includes(f));
-  return (est != null && est >= 8) || hasRiskTag(a.tags) || riskFlag || a.priorFailure != null;
+  return (!isNil(est) && est >= 8) || hasRiskTag(a.tags) || riskFlag || !isNil(a.priorFailure);
 }
 
 /**
@@ -220,7 +235,7 @@ async function dispatch(prompt, opts) {
   } catch {
     out = null;
   }
-  if (out != null) return out;
+  if (!isNil(out)) return out;
   fableFailed = true;
   log("fable dispatch failed; falling back to opus for the run");
   return agent(prompt, { ...opts, model: "opus" });
@@ -235,7 +250,7 @@ async function dispatch(prompt, opts) {
  */
 function implementModel(est, wt, flags) {
   if (forceOpus(est, flags)) return "opus";
-  if ((est != null && est <= 2) || ["docs", "test", "chore"].includes(wt)) return "sonnet";
+  if ((!isNil(est) && est <= 2) || ["docs", "test", "chore"].includes(wt)) return "sonnet";
   return "opus";
 }
 
@@ -303,27 +318,26 @@ let planQuestions = [];
 if (shouldRun("plan")) {
   const reResearch = shouldRun("research");
   const entryStatus = a.plannableOnly ? "draft" : a.mode === "single" ? "unknown" : "draft|planned";
-  const mandate = reResearch
-    ? "Merged mandate: you research AND plan this task in one pass. "
-    : "Merged mandate: plan this task from the prior research brief below; do not re-research. ";
+  const scope = reResearch
+    ? "Scope: research AND plan this task in one pass."
+    : "Scope: plan this task from the prior research brief below; do not re-research.";
   const prompt =
     `${head}\nProject categories and tags: ${a.categories}; ${a.tagVocabulary}.\nEntry status: ${entryStatus}.\n` +
-    mandate +
-    "Orchestrator authority grant: the phase-1 restriction against writing implementationPlan or status is lifted for this dispatch. " +
-    "Design the architecture yourself; the Agent tool is unavailable in workflow dispatches, so never plan to dispatch a subagent. " +
-    "On a draft entry, write the full implementationPlan to Piyaz and flip draft to planned in the same piyaz_edit call. " +
-    "On a planned entry a plan already exists: re-validate it, rewrite only on material drift, never re-pass status='planned', and report the saved plan's real section and build-step counts, never 0/0. " +
-    "An open question that blocks the design returns NEEDS_DECISION with gatePhase='plan'; a failed plan write returns BLOCKED with gatePhase='plan'. Never return DONE without a saved plan." +
+    scope +
     (reResearch ? "" : `\nPrior research brief:\n${brief}`) +
     (a.gateAnswers ? `\nOpen questions resolved by the user:\n${a.gateAnswers}` : "");
-  merged = await dispatch(prompt, {
-    agentType: "piyaz:composer-researcher",
-    model: fableGuardrails(a.pickEstimate, a.flags) ? topModel() : "opus",
-    effort: a.pickEstimate == null || a.pickEstimate >= 8 || hasRiskTag(a.tags) ? "xhigh" : "high",
-    schema: MERGED_SCHEMA,
-    label: `research+plan:${a.taskRef}`,
-    phase: "Research+Plan",
-  });
+  try {
+    merged = await dispatch(prompt, {
+      agentType: "piyaz:composer-research-planner",
+      model: fableGuardrails(a.pickEstimate, a.flags) ? topModel() : "opus",
+      effort: isNil(a.pickEstimate) || a.pickEstimate >= 8 || hasRiskTag(a.tags) ? "xhigh" : "high",
+      schema: MERGED_SCHEMA,
+      label: `research+plan:${a.taskRef}`,
+      phase: "Research+Plan",
+    });
+  } catch (err) {
+    return blockedResult("plan", `research+plan dispatch failed: ${err.message || err}`);
+  }
   if (!merged) return blockedResult("plan", "research+plan agent returned no result");
   brief = merged.brief || brief;
   if (merged.status === "NEEDS_DECISION") return gateResult(merged.gatePhase || "plan", merged);
@@ -333,7 +347,7 @@ if (shouldRun("plan")) {
   planQuestions = merged.openQuestions || [];
 }
 
-const est = merged ? merged.estimate : (a.estimate != null ? a.estimate : a.pickEstimate);
+const est = merged ? merged.estimate : (isNil(a.estimate) ? a.pickEstimate : a.estimate);
 const wt = merged ? merged.workType : a.workType;
 const flags = merged ? merged.flags : a.flags || [];
 
@@ -362,15 +376,20 @@ if (shouldRun("implement")) {
       ? `\nOpen questions from planning — resolve or escalate before guessing:\n- ${planQuestions.join("\n- ")}`
       : "") +
     (a.priorFailure ? `\nPrior failed attempt:\n${a.priorFailure}` : "");
-  const impl = await dispatch(prompt, {
-    agentType: "piyaz:composer-implementer",
-    model: fableGuardrails(est, flags) ? topModel() : implementModel(est, wt, flags),
-    effort: forceOpus(est, flags) || (est != null && est >= 5) ? "high" : "medium",
-    isolation: "worktree",
-    schema: IMPL_SCHEMA,
-    label: `implement:${a.taskRef}`,
-    phase: "Implement",
-  });
+  let impl = null;
+  try {
+    impl = await dispatch(prompt, {
+      agentType: "piyaz:composer-implementer",
+      model: fableGuardrails(est, flags) ? topModel() : implementModel(est, wt, flags),
+      effort: forceOpus(est, flags) || (!isNil(est) && est >= 5) ? "high" : "medium",
+      isolation: "worktree",
+      schema: IMPL_SCHEMA,
+      label: `implement:${a.taskRef}`,
+      phase: "Implement",
+    });
+  } catch (err) {
+    return blockedResult("implement", `implementer dispatch failed: ${err.message || err}`);
+  }
   if (!impl) return blockedResult("implement", "implementer returned no result");
   if (impl.status === "BLOCKED") return blockedResult("implement", impl.reason);
   prUrl = impl.prUrl || prUrl;
@@ -390,18 +409,23 @@ let ciState = "unknown";
 let pendingFindings = a.resumeFrom === "fix" && a.fixFindings ? a.fixFindings : null;
 
 while (true) {
-  if (pendingFindings == null) {
+  if (isNil(pendingFindings)) {
     let failing = "";
     if (prUrl) {
       phase("CI gate");
-      const ci = await agent(
-        `Poll CI for pull request ${prUrl} and report status. Run exactly this single command:\n` +
-          `timeout 660 bash -c 'while :; do out=$(gh pr checks ${prUrl} 2>&1); code=$?; [ $code -ne 8 ] && { printf "%s\\n" "$out"; exit $code; }; sleep 60; done'; echo "exit=$?"\n` +
-          "It polls once a minute, 11 gh calls at most; never re-run it in a tighter loop. " +
-          "Interpret the exit code: 0 means green; 124 means pending (checks still running when the poll budget ran out); any other non-zero means red, UNLESS the output says no checks are reported, which is none. " +
-          "On red, read the failing check names from the output. Do not edit any files; only report.",
-        { model: "haiku", effort: "low", schema: CI_SCHEMA, label: `ci:${a.taskRef}`, phase: "CI gate" },
-      );
+      let ci = null;
+      try {
+        ci = await agent(
+          `Poll CI for pull request ${prUrl} and report status. Run exactly this single command:\n` +
+            `timeout 660 bash -c 'while :; do out=$(gh pr checks ${prUrl} 2>&1); code=$?; [ $code -ne 8 ] && { printf "%s\\n" "$out"; exit $code; }; sleep 60; done'; echo "exit=$?"\n` +
+            "It polls once a minute, 11 gh calls at most; never re-run it in a tighter loop. " +
+            "Interpret the exit code: 0 means green; 124 means pending (checks still running when the poll budget ran out); any other non-zero means red, UNLESS the output says no checks are reported, which is none. " +
+            "On red, read the failing check names from the output. Do not edit any files; only report.",
+          { model: "haiku", effort: "low", schema: CI_SCHEMA, label: `ci:${a.taskRef}`, phase: "CI gate" },
+        );
+      } catch (err) {
+        log(`CI poll dispatch failed, treating checks as pending: ${err.message || err}`);
+      }
       ciState = ci ? ci.state : "pending";
       failing = ci && ci.failingChecks ? ci.failingChecks.join(", ") : "";
     } else {
@@ -415,23 +439,27 @@ while (true) {
         : ciState === "pending"
           ? " CI: unresolved after the 11m poll budget"
           : "";
-    lastReview = await agent(
-      `${head} ${prUrl ? `PR URL: ${prUrl}.` : "No PR; review through the task's linked deliverables."} Mode: composer-phase-4.${ciNote} ` +
-        "Run the comments-and-docs audit and, when the task names output artifacts, deliverable verification per your rules. " +
-        "Set ciOnly=true only when unresolved CI is the sole blocking finding.",
-      {
-        agentType: "piyaz:review",
-        model: "opus",
-        effort: "high",
-        schema: VERDICT_SCHEMA,
-        label: `review:${a.taskRef}`,
-        phase: "Review",
-      },
-    );
+    try {
+      lastReview = await agent(
+        `${head} ${prUrl ? `PR URL: ${prUrl}.` : "No PR; review through the task's linked deliverables."} Mode: composer-phase-4.${ciNote} ` +
+          "Run the comments-and-docs audit and, when the task names output artifacts, deliverable verification per your rules. " +
+          "Set ciOnly=true only when unresolved CI is the sole blocking finding.",
+        {
+          agentType: "piyaz:review",
+          model: "opus",
+          effort: "high",
+          schema: VERDICT_SCHEMA,
+          label: `review:${a.taskRef}`,
+          phase: "Review",
+        },
+      );
+    } catch (err) {
+      return blockedResult("review", `review dispatch failed: ${err.message || err}`);
+    }
     if (!lastReview) return blockedResult("review", "reviewer returned no result");
     if (lastReview.status === "BLOCKED")
       return blockedResult("review", lastReview.reason || "reviewer could not run");
-    if (lastReview.verdict == null)
+    if (isNil(lastReview.verdict))
       return blockedResult("review", lastReview.reason || "reviewer returned no verdict");
 
     if (lastReview.verdict === "approve") break;
@@ -448,25 +476,30 @@ while (true) {
   rotations++;
   log(`fix rotation ${rotations}/2 on ${a.taskRef}`);
   phase("Implement");
-  const fix = await dispatch(
-    `${head} Fix mode. PR: ${prUrl}. Address exactly these review findings, re-run verification, re-mark in_review. ` +
-      "Restructure the executionRecord to state the final shipped state like a PR body: fold the fix into the relevant sections; no per-rotation narrative paragraphs.\n" +
-      `${PROVISION}\nFindings:\n${pendingFindings}`,
-    {
-      agentType: "piyaz:composer-implementer",
-      model: rotations >= 2 || fableGuardrails(est, flags) ? topModel() : "opus",
-      effort: "high",
-      isolation: "worktree",
-      schema: IMPL_SCHEMA,
-      label: `fix:${a.taskRef}#${rotations}`,
-      phase: "Implement",
-    },
-  );
+  let fix = null;
+  try {
+    fix = await dispatch(
+      `${head} Fix mode. PR: ${prUrl}. Address exactly these review findings, re-run verification, re-mark in_review. ` +
+        "Restructure the executionRecord to state the final shipped state like a PR body: fold the fix into the relevant sections; no per-rotation narrative paragraphs.\n" +
+        `${PROVISION}\nFindings:\n${pendingFindings}`,
+      {
+        agentType: "piyaz:composer-implementer",
+        model: rotations >= 2 || fableGuardrails(est, flags) ? topModel() : "opus",
+        effort: "high",
+        isolation: "worktree",
+        schema: IMPL_SCHEMA,
+        label: `fix:${a.taskRef}#${rotations}`,
+        phase: "Implement",
+      },
+    );
+  } catch (err) {
+    return blockedResult("fix", `fix dispatch failed: ${err.message || err}`);
+  }
   if (!fix) return blockedResult("fix", "fix implementer returned no result");
   if (fix.status === "BLOCKED") return blockedResult("fix", fix.reason);
   prUrl = fix.prUrl || prUrl;
-  if (fix.acSatisfied != null) acSatisfied = fix.acSatisfied;
-  if (fix.acTotal != null) acTotal = fix.acTotal;
+  if (!isNil(fix.acSatisfied)) acSatisfied = fix.acSatisfied;
+  if (!isNil(fix.acTotal)) acTotal = fix.acTotal;
   pendingFindings = null;
 }
 
