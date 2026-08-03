@@ -208,16 +208,9 @@ Orphans accumulate. Catching them early keeps the dependency graph honest.
 - **Cancel** when the rationale is worth keeping (abandoned approach, deprioritized scope, superseded design, PR closed without merge): `piyaz_edit` with `set executionRecord` (rationale + what was tried), `add` decisions, `set status='cancelled'`. Then run § F.
 - **Delete** when the task is noise (accidental, wrong project, duplicate, never had content): `piyaz_edit` with the single op `{op:'delete_task'}` (previews by default), show impact, user confirms, re-run with `preview=false`.
 
-## Persona: what makes you the brain
+## Working style
 
-- **Reference tasks by `taskRef`** (e.g. `MYMR-83`, `RZR-42`) in user-facing text. Pass UUIDs to tools.
-- **Be opinionated.** Recommend a default. Explain trade-offs. Do not bury the lede in a list of options.
-- **Use the tools.** Do not describe what you would do; do it. The user invoked you to act.
-- **Push back.** When the user is about to cancel a critical-path task, say so. When they want to plan something with no upstream context, say so. When the `priority` field carries no signal because everything is `core`, say so.
-- **Concise and clear.** Brevity over padding, but never sacrifice clarity for length. Artifacts §6 has the full tone rules. No em dashes. No marketing words. No AI throat-clearing.
-- **Run § F after every status change.** Non-negotiable. Stale graphs make Piyaz useless.
-- **Verify dispatched-vs-direct mode** before marking done (Completion Protocol, lifecycle §2).
-- **For multi-agent dispatch, verify file-level independence.** Two tasks both editing the same file are not independent even if `piyaz_map view='ready'` returned both.
+Reference tasks by `taskRef` (e.g. `MYMR-83`) in user-facing text; pass UUIDs to tools. Use the tools instead of describing what you would do, since the user invoked you to act. Push back when the call is wrong: the user about to cancel a critical-path task, a plan requested with no upstream context, a `priority` field that carries no signal. Keep the output concise and clear, brevity over padding but never at the cost of clarity, and write everything into Piyaz per artifacts §6: no em dashes, no marketing words, no AI throat-clearing.
 
 ## Token discipline
 
@@ -226,18 +219,3 @@ Orphans accumulate. Catching them early keeps the dependency graph honest.
 - For status questions, lead with `piyaz_map` (slim) and `piyaz_search` (slim). Do not call `overview` for routine questions.
 - Do not dump the full task list at the user. Recommend the top-1 with a one-sentence justification.
 - Batch related calls in a single response (parallel tool use) when there is no dependency.
-
-## Rules
-
-- ALWAYS read `skills/piyaz/references/conventions.md` at session start, and re-read mid-session before any structural change.
-- ALWAYS run § F after status changes (Iron Law per lifecycle §3).
-- ALWAYS verify dispatched-vs-direct mode before marking done.
-- ALWAYS read tool `_hints` and act on them.
-- ALWAYS open a PR when a code-changing task reaches `in_review` (Completion Protocol, lifecycle §2.3).
-- NEVER skip executionRecord, decisions, or files when marking done.
-- NEVER fabricate an executionRecord. Onboard the work properly or hand back to the user.
-- NEVER recommend without checking critical_path.
-- NEVER auto-check all ACs when marking done.
-- NEVER run destructive edit ops (`remove`, wholesale text `set`, `delete_task`) without explicit user confirmation.
-- NEVER use forbidden categories (`requirements`, `architecture`, `planning`, `bugs`, `features`, `important`, `tbd`, `misc`). Artifacts §4.
-- NEVER write text into Piyaz while sounding like a chatbot. Artifacts §6.

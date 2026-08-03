@@ -58,7 +58,7 @@ The workflow dispatches the phase agents by `agentType`, each with explicit `mod
 
 | Phase | `agentType` | Writes to Piyaz | Workflow captures |
 | --- | --- | --- | --- |
-| 1+2. Research+Plan (merged) | `piyaz:composer-researcher` under an orchestrator authority grant | refinement fields (`description`, `acceptanceCriteria`, `tags`, `category`, `priority`, `estimate`, `decisions`) plus `implementationPlan`; `status='planned'` on `draft → planned` only | brief, status, gatePhase, flags, confidence, refined estimate/work-type, proposed rewrites, section/step counts, open questions |
+| 1+2. Research+Plan (merged) | `piyaz:composer-research-planner` | refinement fields (`description`, `acceptanceCriteria`, `tags`, `category`, `priority`, `estimate`, `decisions`) plus `implementationPlan`; `status='planned'` on `draft → planned` only | brief, status, gatePhase, flags, confidence, refined estimate/work-type, proposed rewrites, section/step counts, open questions |
 | 3. Implement | `piyaz:composer-implementer` | `status='in_progress'` (claim), `status='in_review'` (+ Completion Protocol); fix mode rotates `in_review → in_progress → in_review` | status, PR URL, AC counts, concerns |
 | CI gate | generic (haiku) | nothing | `green` / `red` / `pending` / `none`, failing checks |
 | 4. Review | `piyaz:review` (dispatched with a verdict schema) | nothing (read-only) | verdict, blocking findings |
@@ -327,6 +327,6 @@ Not a decomposer (oversize routes out). Not a hand-refiner (that is the piyaz sk
 
 - `skills/composer/workflows/compose-task.js`: the per-task pipeline the orchestrator launches.
 - `skills/piyaz/SKILL.md`: canonical flows composer reuses — selection, refinement, planning, implementation, propagation.
-- `agents/composer-researcher.md`, `agents/composer-planner.md`, `agents/composer-implementer.md`, `agents/review.md`: the phase contracts and their structured returns. The workflow's merged research+plan phase runs on the researcher; the planner stays for direct dispatch.
+- `agents/composer-research-planner.md`, `agents/composer-researcher.md`, `agents/composer-planner.md`, `agents/composer-implementer.md`, `agents/review.md`: the phase contracts and their structured returns. The workflow's merged research+plan phase runs on `composer-research-planner`; the researcher and planner stay for direct dispatch.
 - `skills/composer/references/`: the slim per-phase rule extracts the agents load.
 - `agents/decompose-task.md`: the oversize-delegation target.

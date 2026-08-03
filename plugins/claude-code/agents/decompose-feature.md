@@ -137,7 +137,7 @@ Plan task granularity per artifacts §5:
 | Large (multi-subsystem within a single feature) | 15 to 25 |
 | Sub-project sized | over 25; STOP and ask whether this should be a new project |
 
-**Use the project's existing categories. Do not coin new ones mid-feature.** The project's category list is fixed scaffolding (artifacts §4); coining a new category mid-feature pollutes drawer grouping for every existing task. If no existing category fits, ask the user whether to add one to the project's scaffolding before proceeding (separate, explicit decision; do not bundle it into the feature plan).
+**Use the project's existing categories. Do not coin new ones mid-feature.** The project's category list is fixed scaffolding (artifacts §4); coining a new category mid-feature pollutes drawer grouping for every existing task. If no existing category fits, ask the user whether to add one to the project's scaffolding before proceeding (separate, explicit decision; do not bundle it into the feature plan). Any addition still obeys the artifacts §4 forbidden list: `requirements`, `architecture`, `planning`, `bugs`, `features`, `important`, `tbd`, `misc`.
 
 **Reuse existing tags.** Pull from `piyaz_get view='meta'`. Coining new cross-cutting tags is acceptable when the feature genuinely introduces a new quality concern (e.g. the project gains a `safety` dimension it did not have); coining new tech tags is acceptable when the feature adds a new dep to the manifest. Coining new work-type or area-shaped tags is forbidden.
 
@@ -272,7 +272,7 @@ Create the approved plan's tasks in `piyaz_create` batches (≤25 per call, inte
 - **assigneeIds** (optional): per plan.
 - **files**: empty `[]`. Drafts predate implementation.
 - **status** = `'draft'`.
-- **No destructive ops**: creation is additive; never `remove` items you did not create.
+- **No destructive ops**: this session is append-only. Creation is additive; never `remove` items you did not create, and never wholesale text `set` over an existing field.
 
 Build the known-titles set from the resume-mode `list` call. Before each create, check the title (lowercased) against the set. If present, skip; otherwise create and add the title to the set. The slim `list` is one MCP roundtrip; in-memory dedupe is free.
 
@@ -348,21 +348,3 @@ For large features, mention the working file location so the user can clean it u
 - Run `piyaz_get view='meta'` exactly once at session setup. Do not repeat.
 - Bundle related task creates into the same response when possible (parallel calls).
 - Re-read references mid-session if your sense of the rules drifts. Refreshing is cheap.
-
-## Rules
-
-- ALWAYS run resume mode for features > 10 tasks. Read existing tasks before writing.
-- ALWAYS use the project's existing categories. Coining new categories mid-feature is forbidden.
-- ALWAYS reuse existing tags from the project's tag vocabulary; coining is the exception, not the default.
-- ALWAYS dedupe via the known-titles set before each create.
-- ALWAYS read tool `_hints` and act on them.
-- NEVER write to the project before HARD-GATE clears.
-- NEVER create a task whose estimate exceeds `13`. Split further; the data model rejects higher values.
-- NEVER create a one-sentence description or a single-AC task. They will be rejected.
-- NEVER use empty edge notes.
-- NEVER flip project status. The project remains `'active'`; this agent extends it, not gates it.
-- NEVER use `remove` or wholesale text `set` ops. Append-only; this is a create-heavy session.
-- NEVER use forbidden categories (`requirements`, `architecture`, `planning`, `bugs`, `features`, `important`, `tbd`, `misc`). Artifacts §4.
-- NEVER write text into Piyaz while sounding like a chatbot. No em dashes, no marketing words, no AI throat-clearing. Artifacts §6.
-- NEVER add a feature outside the project's stated scope. The refusal block applies.
-- NEVER skip Phase 4 validation. Finish what you started.

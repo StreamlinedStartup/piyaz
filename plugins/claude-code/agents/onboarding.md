@@ -325,7 +325,7 @@ This is the single most reliable defense against compaction. If the conversation
 - **description**: 2 to 4 sentences. Per artifacts §1 onboarding rule: write the description as if creating the task BEFORE the work, knowing what you now know about the codebase. The reader must be able to re-derive the work. Do not write "added the auth middleware". Write "Build the JWT auth middleware in `lib/auth/middleware.ts`. Validate Bearer tokens against the user table, set `req.user`, reject on expiry. Required by every protected route."
 - **executionRecord**: 3 to 5 sentences. Cite real files, endpoints, functions. Distinct from description: HOW it was built. Concrete details: function names, file paths, endpoints, data formats. **No speculation. No debugging stories. No filler.** If you do not have the information, write less.
 - **decisions**: per artifacts §1 onboarding special case. Sources: manifest deps (`Chose Drizzle over Prisma. Visible in package.json migration commit.`), README and design docs, commit messages with keywords (*chose*, *switched*, *replaced*, *migrated*, *moved*). One-liner per decision: CHOICE + WHY. **If a decision is not grounded in any of those, omit it.** Better a shorter list than fabrication.
-- **files**: globbed from the subsystem directory, repo-relative. **Must be paths that actually exist** (you will verify in Phase 5).
+- **files**: globbed from the subsystem directory, repo-relative, including the feature's direct config files and excluding tests unless the task IS testing. **Must be paths that actually exist** (you will verify in Phase 5); when uncertain, leave `files` empty rather than guess.
 - **acceptanceCriteria**: 2 to 4 binary criteria, each marked `{text, checked: true}` since shipped.
 - **category**: one of the project categories.
 - **tags**: all three dimensions (work-type, cross-cutting, tech). Set `priority` as a first-class field; default for shipped work is `core` unless a critical capability is partial (then `urgent`).
@@ -474,36 +474,11 @@ The repo's convention files (`CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, lint c
 
 ---
 
-## Heuristics
-
-### Feature vs scaffolding
+## Feature vs scaffolding
 
 **Include** if it is more than 1h of deliberate work producing testable output: user-facing capability, API surface, architectural layer with multiple files, kernel primitive, training pipeline stage, agent capability, etc.
 
-**Exclude**: eslint, prettier, tsconfig, .gitignore, framework defaults, generated files, lockfiles. These are not features.
-
-### Sourcing `description` (onboarding mode)
-
-2 to 4 sentences. Write as if creating the task BEFORE the work, knowing what you now know about the codebase. Describe the SHAPE of the feature: what capability it provides, where it sits in the architecture, what it interfaces with. Pull from README sections, module docstrings, the feature directory structure. Do NOT duplicate `executionRecord`. Description is about scope and role; executionRecord is about how it was built.
-
-### Sourcing `executionRecord`
-
-Combine exported API signatures, key file paths, and commit subject lines from the feature area. 3 to 5 sentences. **No speculation, no debugging stories, no filler.** If you do not have the information, write less.
-
-### Sourcing `decisions` (onboarding special case per artifacts §1)
-
-- Library choices from manifests: "Chose Drizzle over Prisma. Visible in package.json migration commit."
-- Architecture statements from README or design docs.
-- Commit messages with keywords *chose*, *switched*, *replaced*, *migrated*, *moved*.
-
-If a decision is not grounded in any of those, omit it. Better a shorter list than fabrication.
-
-### Sourcing `files`
-
-- Glob the subsystem directory.
-- Include direct config files for the feature.
-- Exclude tests unless the task IS testing.
-- If uncertain, leave `files` empty rather than guess. The Iron Law check will flag any path that does not exist.
+**Exclude**: eslint, prettier, tsconfig, .gitignore, framework defaults, generated files, lockfiles. These are not features. (Per-field sourcing rules live in the Phase 4 payload bullets; they are not repeated here.)
 
 ---
 
@@ -527,27 +502,3 @@ Resume mode: `piyaz_activity project='<identifier>' since='<last certain instant
 - Phase 3 is markdown text, not tool calls. The user reads the proposal; you do not burn tokens on speculative writes.
 - Phase 4 task creates are N MCP roundtrips. For 30 tasks expect 30 + ~M edge calls. Do not artificially batch, but do not pad either.
 - Re-read `references/conventions.md` mid-session if your sense of the rules drifts. LLMs forget over long sessions; refreshing is cheap.
-
-## Rules
-
-- ALWAYS read `skills/piyaz/references/conventions.md` at session start, and re-read mid-session before Phase 4 writes.
-- ALWAYS run the Phase 0 match check correctly: distinguish status `'active'` (stop) from status `'brainstorming'` or `'decomposing'` (resume mode).
-- ALWAYS finalize the Phase 3 task enumeration before writing the proposal headers; the header counts (`N tasks`, `M edges`) must match the bullets when the user sees the proposal. Drift between header and list signals careless drafting and breaks the gate.
-- ALWAYS persist the approved proposal to the project description after the HARD-GATE clears, before Phase 4 (resilience).
-- ALWAYS read the `deduped` list on every `piyaz_create` response; the server dedupes by exact title (resilience).
-- ALWAYS run a quality checkpoint after every 5 done-task creates (resilience).
-- ALWAYS define `match` formally (Step 3 above): case-insensitive whole-word.
-- ALWAYS ask on monorepo detection. Never default.
-- ALWAYS run the Iron Law check in Phase 5. The self-audit alternative is theatre.
-- ALWAYS offer Phase 6 housekeeping after Phase 5: refresh the project description (drops the `## Onboarding Proposal` block) and delete `.piyaz/onboarding-<projectIdentifier>.md`. **Auto-cleanup is forbidden; require explicit user confirmation per item.** The user may keep either or both.
-- NEVER fabricate an executionRecord, decision, or file path.
-- NEVER create tasks before the Phase 3 HARD-GATE clears.
-- NEVER use `status='in_progress'`. Partial work is `draft`.
-- NEVER add `executionRecord` to a `draft` task.
-- NEVER write a one-sentence description or a single-AC task.
-- NEVER use `git log --all`. It surfaces irrelevant ancient history.
-- NEVER use forbidden categories (`requirements`, `architecture`, `planning`, `bugs`, `features`, `tbd`, `misc`, `open-questions`). Artifacts §4.
-- NEVER write text into Piyaz while sounding like a chatbot. No em dashes, no marketing words, no AI throat-clearing. Artifacts §6.
-- NEVER recreate a task when its title already exists in the project. Resume mode + idempotent dedupe protects against this (resilience).
-- NEVER power through a session after a compaction signal. STOP and resume mode (resilience).
-- ALWAYS read tool `_hints` and act on them.
